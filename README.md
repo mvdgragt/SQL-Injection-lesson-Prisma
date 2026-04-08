@@ -1,125 +1,157 @@
-# SQL Injection Demo — Prisma vs Raw SQL
+# Sundsgården Hotell & Konferens — Staff Login System
 
-In this lesson we look at the difference between a **vulnerable** login endpoint (raw SQL) and a **safe** one (Prisma parameterized queries).
-
----
-
-## What is SQL Injection?
-
-Imagine a login form where you type your email address. Behind the scenes, the server builds a database query like this:
-
-```sql
-SELECT * FROM "User" WHERE email = 'you@example.com'
-```
-
-That looks fine — but what if someone types this as their email?
-
-```
-' OR '1'='1
-```
-
-The query becomes:
-
-```sql
-SELECT * FROM "User" WHERE email = '' OR '1'='1'
-```
-
-Since `'1'='1'` is always true, this returns **every user in the database**. The attacker just bypassed the login — without knowing any password.
-
-This is SQL injection: tricking the database by sneaking extra SQL commands into user input.
+A full-stack web application for managing restaurant staff at Sundsgården. Employees log in with their email and a 4-digit code. Admin users can create, update, and delete employee records; non-admin users see a personal welcome page.
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** React + Vite + Tailwind CSS
-- **Backend:** Node.js + Express
-- **Database:** PostgreSQL
-- **ORM:** Prisma
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, React Router, Tailwind CSS, Vite |
+| Backend | Node.js, Express 5, TypeScript |
+| Database | PostgreSQL (via Prisma ORM) |
+| Validation | Zod |
+| Auth | Express sessions (cookie-based) |
 
 ---
 
-## Getting Started
+## Project Structure
 
-### Prerequisites
+```
+login-assessment-module2/
+├── backend/
+│   ├── index.ts                  # Express app entry point (port 3000)
+│   ├── prisma/
+│   │   ├── schema.prisma         # Database schema
+│   │   └── seed.ts               # Seed script with test users
+│   ├── routes/
+│   │   ├── auth.ts               # Login, logout, /me endpoints
+│   │   └── employees.ts          # Employee CRUD (admin only)
+│   └── src/
+│       ├── middleware/
+│       │   └── requireAdmin.ts   # Role-based auth middleware
+│       └── types/
+│           └── index.ts          # TypeScript types & Zod schemas
+└── frontend/
+    └── src/
+        ├── App.jsx               # Router + protected route logic
+        ├── LoginPage.jsx         # Email + 4-digit code login form
+        ├── AdminPage.jsx         # Employee management dashboard
+        ├── WelcomePage.jsx       # Regular user welcome page
+        ├── api.js                # Fetch-based API client
+        └── session.js            # localStorage session helpers
+```
 
-- Node.js
-- Docker (for the database)
+---
 
-### 1. Start the database
+## Prerequisites
+
+- Node.js 18+
+- PostgreSQL running on port **5433** (non-default port)
+
+> The `.env-example` file includes `PGADMIN_*` variables, so pgAdmin via Docker is a convenient way to manage the database locally.
+
+---
+
+## Setup & Running
+
+### 1. Configure the backend environment
 
 ```bash
 cd backend
-docker compose up -d
+cp .env-example .env
 ```
 
-### 2. Set up the database
+Edit `.env` with your database credentials:
+
+```env
+POSTGRES_USER=root
+POSTGRES_PASSWORD=root
+POSTGRES_DB=restaurant_db
+POSTGRES_PORT=5433
+DATABASE_URL="postgresql://root:root@localhost:5433/restaurant_db"
+```
+
+### 2. Install dependencies
+
+Run both commands (they can be done in parallel in separate terminals):
 
 ```bash
+# Terminal 1 — backend
+cd backend && npm install
+
+# Terminal 2 — frontend
+cd frontend && npm install
+```
+
+### 3. Set up the database
+
+```bash
+cd backend
+
+# Run migrations to create the tables
 npx prisma migrate dev
+
+# Seed the database with test users
 npx prisma db seed
 ```
 
-### 3. Start the backend
+### 4. Start the development servers
 
 ```bash
-npm install
-npm run dev
-```
+# Terminal 1 — backend (http://localhost:3000)
+cd backend && npm run dev
 
-### 4. Start the frontend
-
-```bash
-cd ../frontend
-npm install
-npm run dev
+# Terminal 2 — frontend (http://localhost:5173)
+cd frontend && npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
-## Example Attack Strings to Try
+## Test Accounts
 
-Paste these into the **Unsafe** panel to see SQL injection in action:
+These accounts are created by the seed script:
 
-```
-' OR '1'='1
-```
-
-Returns all users.
-
-```
-' OR admin = true --
-```
-
-Returns only admin users.
-
-```
-'; DROP TABLE "User"; --
-```
-
-Attempts to delete the entire users table.
+| Name | Role | Email | Code |
+|---|---|---|---|
+| Michiel van der Gragt | ADMIN | michiel@sundsgarden.se | 1938 |
+| Erik Lindqvist | HEAD_WAITER | erik@sundsgarden.se | 1111 |
+| Anna Bergström | WAITER | anna@sundsgarden.se | 2222 |
+| Marcus Holm | WAITER | marcus@sundsgarden.se | 3333 |
+| Sofia Karlsson | RUNNER | sofia@sundsgarden.se | 4444 |
+| Johan Nilsson | RUNNER | johan@sundsgarden.se | 5555 |
 
 ---
 
-## Why Prisma Prevents This
+## API Endpoints
 
-Prisma uses **parameterized queries**. Instead of building the SQL string with user input directly, it sends the query and the value separately:
+### Auth — `/api/auth`
 
-```sql
--- Query template (sent first):
-SELECT * FROM "User" WHERE email = $1
+| Method | Path | Description |
+|---|---|---|
+| POST | `/login` | Login with `{ email, code }` |
+| POST | `/logout` | Destroy current session |
+| GET | `/me` | Get the currently logged-in user |
 
--- Value (sent separately):
-$1 = 'whatever the user typed'
-```
+### Employees — `/api/employees` *(admin only)*
 
-The database never interprets the value as SQL — it's always treated as plain text data. No matter what the user types, it cannot change the structure of the query.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | List all employees |
+| POST | `/` | Create a new employee |
+| PUT | `/:id` | Update an employee |
+| DELETE | `/:id` | Delete an employee |
 
 ---
 
-## Further Reading
+## Roles
 
-- [OWASP Top 10 — Injection](https://owasp.org/Top10/2025/)
-- [W3Schools — SQL Injection](https://www.w3schools.com/sql/sql_injection.asp)
+| Role | Access |
+|---|---|
+| `ADMIN` | Full employee management via the admin dashboard |
+| `HEAD_WAITER` | Welcome page only |
+| `WAITER` | Welcome page only |
+| `RUNNER` | Welcome page only |

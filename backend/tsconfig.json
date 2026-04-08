@@ -2,11 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "CommonJS",
-    "moduleResolution": "node",
+    "moduleResolution": "node10",
     "esModuleInterop": true,
     "strict": true,
     "outDir": "dist",
     "skipLibCheck": true
   },
-  "include": ["index.ts", "src/**/*"]
+  "include": ["index.ts", "src/**/*", "routes/**/*"]
 }
