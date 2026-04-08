@@ -155,3 +155,4 @@ These accounts are created by the seed script:
 | `HEAD_WAITER` | Welcome page only |
 | `WAITER` | Welcome page only |
 | `RUNNER` | Welcome page only |
+# login-demo
